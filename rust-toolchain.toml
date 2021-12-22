@@ -1,0 +1,8 @@
+# rust-toolchain.toml
+# nighly toolchain needed for alloc
+# 10-10-21 was selected randomly. I simply wanted prevent it from constant updating 
+[toolchain]
+channel = "nightly-2021-10-10"
+components = [ "rustfmt", "rustc-dev" ]
+targets = [ "thumbv7em-none-eabihf" ]
+profile = "minimal"
