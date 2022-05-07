@@ -8,8 +8,9 @@ pub struct Led {
 }
 
 impl Led {
-    pub fn new<M>(pin: PA5<M>) -> Self {
-        let pa5 = pin.into_push_pull_output();
+    pub fn new(pin: PA5<Output<PushPull>>) -> Self {
+        //let pa5 = pin.into_push_pull_output();
+        let pa5 = pin;
         Self { pa5 }
     }
 

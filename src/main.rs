@@ -21,18 +21,24 @@ use core::convert::TryInto;
 use Nucleo_F4xx_PlantWelfare::{
     hal::{
 		gpio::Edge, interrupt,
-		delay::Delay, 
+		pac,
+		//delay::Delay, 
 		rtc::Rtc,
 		adc::{Adc, config::AdcConfig, config::SampleTime}, 
         serial::{config::Config, Serial},
-        stm32::RTC, stm32::PWR,
+        //stm32::RTC, stm32::PWR,
 		prelude::*
 		},
-    pac, Button, Led, 
+    //pac, 
+	Button, Led, 
     Watering, SerialInterface,SerialCommand,
 };
 
-use rtcc::{NaiveDate, NaiveDateTime, NaiveTime, Rtcc};
+//use rtcc::{NaiveDate, NaiveDateTime, NaiveTime, Rtcc};
+use time::{
+    macros::{date, time}, 
+	Time, PrimitiveDateTime,
+};
 //use time::Duration;
 
 // Used to signal to the main loop that it should toggle the led
@@ -63,35 +69,38 @@ fn main() -> ! {
 	let gpioc = p.GPIOC.split();
 
     // (Re-)configure PA5 (LD2 - User Led) as output
-    let mut led = Led::new(gpioa.pa5);
+    let mut led = Led::new(gpioa.pa5.into_push_pull_output());
     led.set(false);
 
 	// iniialize Relais logic
-	let mut water = Watering::new(gpiob.pb3, gpiob.pb5, gpiob.pb4,
-								  gpiob.pb10, gpioa.pa8, gpioc.pc4);
+	let mut water = Watering::new(	gpiob.pb3.into_push_pull_output(),
+								 	gpiob.pb5.into_push_pull_output(), 
+									gpiob.pb4.into_push_pull_output(),
+								  	gpiob.pb10.into_push_pull_output(), 
+									gpioa.pa8.into_push_pull_output(), 
+									gpioc.pc4.into_push_pull_output());
 	
     // Constrain clock registers
     let rcc = p.RCC.constrain();
 
-    let clocks = rcc.cfgr.sysclk(84.mhz()).freeze();
+    let clocks = rcc.cfgr.sysclk(84.MHz()).freeze();
 
 	let mut syscfg = p.SYSCFG.constrain();
     
-    let tx = gpioa.pa2.into_alternate_af7();
-    let rx = gpioa.pa3.into_alternate_af7();
+    let tx_pin = gpioa.pa2.into_alternate();
+    let rx_pin = gpioa.pa3.into_alternate();
     let config = Config::default().baudrate(115_200.bps());
-    let serial = Serial::usart2(p.USART2, (tx, rx), config, clocks).unwrap();
+	let serial = p.USART2.serial((tx_pin, rx_pin), config, &clocks).unwrap();
     
     let (mut tx, mut rx) = serial.split();
     let mut serialprint = SerialInterface::new(tx, rx); 
 	serialprint.init();
 
-	let mut pwr = p.PWR;
-	let mut rtc = Rtc::new(p.RTC, 255, 127, false, &mut pwr);
-	rtc.set_24h_fmt();
+	let mut rtc = Rtc::new(p.RTC, &mut p.PWR);
+	//rtc.set_24h_fmt();
 
     // Get delay provider
-    let mut delay = Delay::new(cp.SYST, &clocks);
+    let mut delay = p.TIM5.delay_us(&clocks);
 
 	// Configure PC5 (User B1) as an input and enable external interrupt
     let mut button = Button::new(gpioc.pc13);
@@ -101,11 +110,11 @@ fn main() -> ! {
         BUTTON.borrow(cs).replace(Some(button));
     });
 
-    // Enable the external interrupt
-    unsafe 
-	{
-        cortex_m::peripheral::NVIC::unmask(pac::Interrupt::EXTI15_10);
-    }
+    // Enable the external interrupt todo check what is wrong with the Interrupts 
+    // unsafe 
+	// {
+    //     cortex_m::peripheral::NVIC::unmask(pac::Interrupt::EXTI15_10.into());
+    // }
 
 	// new part -> initilize the ADC 
 	let mut adc = Adc::adc1(p.ADC1, true, AdcConfig::default());
@@ -116,14 +125,13 @@ fn main() -> ! {
 	let pc1 = gpioc.pc1.into_analog();
 	let pc0 = gpioc.pc0.into_analog();
 
-	let wateringtime : NaiveTime = NaiveTime::from_hms_milli(18, 00, 00, 0); // at 18:00 we start the pumps 
+	//let wateringtime : NaiveTime = NaiveTime::from_hms_milli(18, 00, 00, 0); // at 18:00 we start the pumps 
+	let wateringtime : Time = time!(18:00); // at 18:00 we start the pumps 
 	
-	let mut today = NaiveDate::from_ymd(2021, 1, 1); // fallback if 5V blackout 
-	match rtc.get_date().ok() {		
-		None => rprintln!("Error"), 	
-		Some(t) => today = t,
-	}
-	let mut nextWaterInterval : NaiveDateTime = NaiveDateTime::new(today.succ(), wateringtime); 
+	//let mut today = NaiveDate::from_ymd(2021, 1, 1); // fallback if 5V blackout 
+	let mut today = date!(2021 - 1 - 1);
+	today = rtc.get_datetime().date();
+	let mut nextWaterInterval : PrimitiveDateTime = PrimitiveDateTime::new(today.next_day().unwrap(),  wateringtime); 
 	let mut state = 0; // idle -> todo change to enum
 	let mut waterlevel : [u16; 6] = [0,0,0,0,0,0];
 	let mut relaistest = 9;
@@ -153,37 +161,26 @@ fn main() -> ! {
 
 		rprintln!("Plant{}: {}mV", 0, waterlevel[0]);
 		//water.check_water_level(waterlevel);
-	    let log_date_time = format!("Time {:?}:{:?}:{:?} Date {:?}.{:?}.{:?}", 
-			rtc.get_hours().ok(), rtc.get_minutes().ok(), rtc.get_seconds().ok(),
-			rtc.get_day().ok(), rtc.get_month().ok(), rtc.get_year().ok());
+		let log_date_time = format!("DateTime {}", rtc.get_datetime());
 		rprintln!("{}", log_date_time);
         serialprint.printcycle();
 
-		let mut time = NaiveDate::from_ymd(2021,1,1).and_hms(5, 0, 0);
-		match rtc.get_datetime().ok() 
-		{		
-			None => rprintln!("Error"), 	
-			Some(t) => time = t,
-		}
+		let mut time = rtc.get_datetime();
 
 		if state == 0 {
-			let dt_result = rtc.get_datetime().ok();
-			match dt_result 
+			let dt_result = rtc.get_datetime();
+			if dt_result >= nextWaterInterval 
 			{
-				None 		=> 	rprintln!("Error"), 
-				Some(now) 	=> 	if now >= nextWaterInterval 
-								{
-									rprintln!("NOW");
-									state = 1;
-									relaistest = 0;
-									nextWaterInterval = NaiveDateTime::new(nextWaterInterval.date().succ(), nextWaterInterval.time());
-								} 
-								else 
-								{
-									let date = format!("{:?}",nextWaterInterval.date());
-									rprintln!("wait {}",date );
-								},
-			};
+				rprintln!("NOW");
+				state = 1;
+				relaistest = 0;
+				nextWaterInterval = PrimitiveDateTime::new(nextWaterInterval.date().next_day().unwrap(), nextWaterInterval.time());
+			} 
+			else 
+			{
+				let date = format!("{:?}",nextWaterInterval.date());
+				rprintln!("wait {}",date );
+			}
 		}
 		if state == 1 
 		{
@@ -207,9 +204,9 @@ fn main() -> ! {
 			SerialCommand::ActivatePump(_idx) => {},
 			SerialCommand::SetDate(_date) => 	{	
 													rtc.set_date(&_date);
-													nextWaterInterval = NaiveDateTime::new(_date, wateringtime); 
+													nextWaterInterval = PrimitiveDateTime::new(_date, wateringtime); 
 												},
-			SerialCommand::SetNext(_date) => nextWaterInterval = NaiveDateTime::new(_date, wateringtime),
+			SerialCommand::SetNext(_date) => nextWaterInterval = PrimitiveDateTime::new(_date, wateringtime),
 			SerialCommand::SetTime(_time) => {rtc.set_time(&_time);},
 			SerialCommand::SetPlantConfig(_idx, power) => {},
 			SerialCommand::SetPlantWateringDuration(_idx, _duration) => water.set_duration(_idx.try_into().unwrap(), _duration.try_into().unwrap()),

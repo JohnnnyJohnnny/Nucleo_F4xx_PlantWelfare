@@ -21,13 +21,14 @@ categories = [
 [dependencies]
 ufmt-write = "0.1.0"
 ufmt = { version = "0.1.0", optional = true }
-cortex-m = "0.6.2"
+cortex-m = "0.7.4"
 riscv = { version = "0.6.0", optional = true }
-cortex-m-rt = "0.6.12"
+cortex-m-rt = "0.7.1"
 panic-halt = { version = "0.2.0", optional = true }
 embedded-hal = "0.2"
-stm32f4xx-hal = { version = "0.10.0", features = ["rt", "stm32f401"] }
+stm32f4xx-hal = { version = "0.13.1", features = ["rt", "stm32f401"] }
 rtcc = { version = "0.2.1"}
+time = { version = "0.3.9", default-features = false, features = ["macros", "parsing"] }
 rtt-target = { version = "0.3.0", features = ["cortex-m"] }
 panic-rtt-target = { version = "0.1.1", features = ["cortex-m"] }
 arrayvec = { version = "0.7.1", default-features = false }
@@ -38,8 +39,6 @@ chrono ={ version = "0.4.19", default-features = false}
 [dev-dependencies]
 nb = "0.1"
 cortex-m-rtic = "0.5"
-hd44780-driver = "0.3.0"
-tpa2016d2 = "0.2.0"
 segment-display = "0.1"
 embedded-graphics = { version = "0.6" }
 epd-waveshare = { version = "0.4", features = ["graphics"] }

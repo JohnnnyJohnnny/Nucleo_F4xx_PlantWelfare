@@ -8,9 +8,13 @@ use stm32f4xx_hal::gpio::{gpiob::PB3, gpiob::PB5, gpiob::PB4, gpiob::PB10,
 						  gpioa::PA8, gpioc::PC4, Output, PushPull};
 
 use embedded_hal::digital::v2::{OutputPin};
-use rtcc::{NaiveTime};
+//use rtcc::{NaiveTime};
+use time::{
+    macros::time,
+	Time, Duration,
+	PrimitiveDateTime};
 use rtt_target::{rprintln};
-use chrono::Duration;
+//use chrono::Duration;
 
 pub enum TaskState 
 {
@@ -23,7 +27,7 @@ struct WaterTask
 {
 	active 	 : TaskState,
 	duration : u16,
-	end 	 : NaiveTime,
+	end 	 : Time,
 }
 
 pub struct WaterConfig
@@ -57,15 +61,21 @@ impl Watering {
      *             they should be passed as array
 	 * 
 	 */
-	pub fn new<M>( pin1: PB3<M>, pin2: PB5<M>, pin3: PB4<M>,
-				   pin4: PB10<M>, pin5: PA8<M>, pin6: PC4<M>,) -> Self 
+	pub fn new( pin1: PB3<Output<PushPull>>, pin2: PB5<Output<PushPull>>, pin3: PB4<Output<PushPull>>,
+				   pin4: PB10<Output<PushPull>>, pin5: PA8<Output<PushPull>>, pin6: PC4<Output<PushPull>>,) -> Self 
 	{
-		let relais1 = pin1.into_push_pull_output();	
-		let relais2 = pin2.into_push_pull_output();
-		let relais3 = pin3.into_push_pull_output();	
-		let relais4 = pin4.into_push_pull_output();
-		let relais5 = pin5.into_push_pull_output();	
-		let relais6 = pin6.into_push_pull_output();
+		// let relais1 = pin1.into_push_pull_output();	
+		// let relais2 = pin2.into_push_pull_output();
+		// let relais3 = pin3.into_push_pull_output();	
+		// let relais4 = pin4.into_push_pull_output();
+		// let relais5 = pin5.into_push_pull_output();	
+		// let relais6 = pin6.into_push_pull_output();
+		let relais1 = pin1;	
+		let relais2 = pin2;
+		let relais3 = pin3;	
+		let relais4 = pin4;
+		let relais5 = pin5;	
+		let relais6 = pin6;
 		let relaisstate = Relaisstate::Off; 
 		let count = 0;		
 		let plantconfig :  [WaterConfig; 6] = [
@@ -77,12 +87,12 @@ impl Watering {
 			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,}
 			];
 		let task : [WaterTask; 6] = [
-			WaterTask { active : TaskState::Off, duration :0, end: NaiveTime::from_hms_milli(0, 00, 00, 0), },
-			WaterTask { active : TaskState::Off, duration :0, end: NaiveTime::from_hms_milli(0, 00, 00, 0), },
-			WaterTask { active : TaskState::Off, duration :0, end: NaiveTime::from_hms_milli(0, 00, 00, 0), },
-			WaterTask { active : TaskState::Off, duration :0, end: NaiveTime::from_hms_milli(0, 00, 00, 0), },
-			WaterTask { active : TaskState::Off, duration :0, end: NaiveTime::from_hms_milli(0, 00, 00, 0), },
-			WaterTask { active : TaskState::Off, duration :0, end: NaiveTime::from_hms_milli(0, 00, 00, 0), },
+			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
+			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
+			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
+			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
+			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
+			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
 			];
 
 		Self {relais1, relais2, relais3, relais4, relais5, relais6, relaisstate, count,	plantconfig, task	}
@@ -100,7 +110,7 @@ impl Watering {
 		}
 	}
 
-	pub fn cycling(&mut self, time_now : NaiveTime)
+	pub fn cycling(&mut self, time_now : Time)
 	{
 		for _elem in 0..5 
 		{
@@ -110,7 +120,7 @@ impl Watering {
 					if time_now >= self.task[_elem].end
 					{
 						self.relais_off(_elem);
-						self.task[_elem].end = NaiveTime::from_hms_milli(0,0,0,0);
+						self.task[_elem].end = time!(0:00);
 						self.task[_elem].active = TaskState::Off;
 						return;
 					}
@@ -121,7 +131,7 @@ impl Watering {
 				}
 				TaskState::WaitActivation => {
 					self.relais_on(_elem);
-					self.task[_elem].end = time_now + Duration::milliseconds(self.task[_elem].duration.into());
+					self.task[_elem].end = time_now + Duration::microseconds(self.task[_elem].duration.into());
 					self.task[_elem].active = TaskState::Active;
 					return;
 				}

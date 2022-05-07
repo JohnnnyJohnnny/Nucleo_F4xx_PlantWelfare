@@ -20,9 +20,9 @@ pub enum SerialCommand
     PrintNext,
     PrintUsage,
     ActivatePump(u8),
-    SetDate(NaiveDate),
-    SetTime(NaiveTime),
-    SetNext(NaiveDate),
+    SetDate(Date),
+    SetTime(Time),
+    SetNext(Date),
     SetPlantConfig(u8, u32),
     SetPlantWateringDuration(u32, u32),
 }
@@ -32,14 +32,18 @@ use stm32f4xx_hal::{
         serial::{Tx, Rx},
     };
 
-use stm32f4xx_hal::stm32::{USART2};
+use stm32f4xx_hal::{pac::USART2};
 use stm32f4xx_hal::nb::block;
 
 use arrayvec::ArrayString; // 0.4.10
 use ascii::{AsciiChar};
 use core::fmt::Write;
 
-use rtcc::{NaiveDate, NaiveDateTime, NaiveTime};
+//use rtcc::{NaiveDate, NaiveDateTime, NaiveTime};
+use time::{
+    macros::format_description,
+    Date, Time, PrimitiveDateTime,
+};
 use rtt_target::{rprintln};
   
 pub struct SerialInterface {
@@ -143,7 +147,8 @@ impl SerialInterface {
                 self.readbuffer.remove(0);
                 self.readbuffer.remove(0);
                 self.readbuffer.remove(0);
-                match NaiveTime::parse_from_str(self.readbuffer.as_str(), "%H:%M:%S").ok()
+                let format = format_description!("[hour]:[minute]:[second]");
+                match Time::parse(self.readbuffer.as_str(), format).ok()
                 {
                     None => {},
                     Some(time) => command = SerialCommand::SetTime(time),
@@ -156,7 +161,9 @@ impl SerialInterface {
                 self.readbuffer.remove(0);
                 self.readbuffer.remove(0);
                 self.readbuffer.remove(0);
-                match NaiveDate::parse_from_str(self.readbuffer.as_str(), "%d.%m.%Y").ok()
+
+                let format = format_description!("[day].[month].[year]");
+                match Date::parse(self.readbuffer.as_str(), format).ok()
                 {
                     None => {},
                     Some(date) => command = SerialCommand::SetDate(date),
@@ -171,11 +178,19 @@ impl SerialInterface {
                 self.readbuffer.remove(0);
                 self.readbuffer.remove(0);
                 self.readbuffer.remove(0);
-                match NaiveDate::parse_from_str(self.readbuffer.as_str(), "%d.%m.%Y").ok()
+                let format = format_description!("[day].[month].[year]");
+                //let date = Date::parse(self.readbuffer.as_str(),format);
+                match Date::parse(self.readbuffer.as_str(),format).ok()
                 {
                     None => {},
                     Some(date) => command = SerialCommand::SetNext(date),
                 }
+                //command = SerialCommand::SetNext(date);
+                // match NaiveDate::parse_from_str(self.readbuffer.as_str(), "%d.%m.%Y").ok()
+                // {
+                //     None => {},
+                //     Some(date) => command = SerialCommand::SetNext(date),
+                // }
             }
             else if self.readbuffer.contains("activ")
             {
@@ -276,10 +291,10 @@ impl SerialInterface {
         }
     }	
 
-    pub fn print_time(&mut self, time : NaiveDateTime)
+    pub fn print_time(&mut self, time : PrimitiveDateTime)
     {
         let mut buf = ArrayString::<30>::new();
-        write!(&mut buf, "Time {:?}\r\n", time).expect("Can't write");
+        write!(&mut buf, "Time {}\r\n", time).expect("Can't write");
         
 		for element in buf.bytes() {
             block!(self.tx.write(element)).ok();    // ESC + [H  goes to home location

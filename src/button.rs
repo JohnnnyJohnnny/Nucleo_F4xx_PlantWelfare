@@ -1,16 +1,18 @@
 use stm32f4xx_hal::{
-	gpio::{gpioc::PC13, Edge, ExtiPin, Input, PullUp},
+	gpio::{gpioc::PC13, Edge, ExtiPin, Input, Pull},
 	pac::EXTI,
 	syscfg::SysCfg,
 };
 
 pub struct Button {
-    pin: PC13<Input<PullUp>>,
+    //pin: PC13<Input<Pull>>,
+    pin: PC13<Input>,
 }
 
 impl Button {
-    pub fn new<M>(pc13: PC13<M>) -> Self {
-        let pin = pc13.into_pull_up_input();
+    pub fn new(pc13: PC13<Input>) -> Self {
+        //let pin = pc13.into_pull_up_input();
+        let pin = pc13;
         Self { pin }
     }
 
