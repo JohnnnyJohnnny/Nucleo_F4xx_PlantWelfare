@@ -14,3 +14,6 @@ pub use watering_logic::Watering;
 
 mod serial_interface;
 pub use serial_interface::{SerialInterface, SerialCommand};
+
+mod systemconfig;
+pub use systemconfig::{SystemConfig};

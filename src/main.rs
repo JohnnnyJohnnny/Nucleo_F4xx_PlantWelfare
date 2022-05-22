@@ -26,12 +26,13 @@ use Nucleo_F4xx_PlantWelfare::{
 		rtc::Rtc,
 		adc::{Adc, config::AdcConfig, config::SampleTime}, 
         serial::{config::Config, Serial},
+		flash::LockedFlash,
         //stm32::RTC, stm32::PWR,
 		prelude::*
 		},
     //pac, 
 	Button, Led, 
-    Watering, SerialInterface,SerialCommand,
+    Watering, SerialInterface,SerialCommand, SystemConfig,
 };
 
 //use rtcc::{NaiveDate, NaiveDateTime, NaiveTime, Rtcc};
@@ -124,6 +125,10 @@ fn main() -> ! {
 	let pb0 = gpiob.pb0.into_analog();
 	let pc1 = gpioc.pc1.into_analog();
 	let pc0 = gpioc.pc0.into_analog();
+
+	let mut flash_access = SystemConfig::new(LockedFlash::new(p.FLASH));
+	let stored_config = flash_access.read_config();
+	water.SetPlantConfig_all(stored_config);
 
 	//let wateringtime : NaiveTime = NaiveTime::from_hms_milli(18, 00, 00, 0); // at 18:00 we start the pumps 
 	let wateringtime : Time = time!(18:00); // at 18:00 we start the pumps 

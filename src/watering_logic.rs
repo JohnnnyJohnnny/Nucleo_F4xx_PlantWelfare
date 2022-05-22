@@ -8,13 +8,11 @@ use stm32f4xx_hal::gpio::{gpiob::PB3, gpiob::PB5, gpiob::PB4, gpiob::PB10,
 						  gpioa::PA8, gpioc::PC4, Output, PushPull};
 
 use embedded_hal::digital::v2::{OutputPin};
-//use rtcc::{NaiveTime};
 use time::{
     macros::time,
 	Time, Duration,
 	PrimitiveDateTime};
 use rtt_target::{rprintln};
-//use chrono::Duration;
 
 pub enum TaskState 
 {
@@ -36,6 +34,46 @@ pub struct WaterConfig
 	levellow : u16,
 	levelhigh: u16,
 }
+
+impl WaterConfig
+{
+	pub fn new() -> WaterConfig
+	{
+		WaterConfig
+		{
+			duration : 1000,
+			levellow : 1300,
+			levelhigh : 1800,
+		}
+	}
+
+	pub fn new_ex(dur : u16, low : u16, high : u16) -> WaterConfig
+	{
+		WaterConfig
+		{
+			duration : dur,
+			levellow : low,
+			levelhigh : high,
+		}
+	}
+
+	pub fn to_array(&mut self) -> [u8; 6]
+    {
+		return [
+			((self.duration >> 8) & 0xFF) as u8,
+			((self.duration >> 0) & 0xFF) as u8,
+			((self.levellow >> 8) & 0xFF) as u8,
+			((self.levellow >> 0) & 0xFF) as u8,
+			((self.levelhigh >> 8) & 0xFF) as u8,
+			((self.levelhigh >> 0) & 0xFF) as u8,
+		]
+	}
+}
+
+const max_number_of_plants : usize = 6;
+
+pub type PlantData = [WaterConfig; max_number_of_plants];
+
 
 enum Relaisstate {On, Off}
 /// Relais Pin 
@@ -64,12 +102,6 @@ impl Watering {
 	pub fn new( pin1: PB3<Output<PushPull>>, pin2: PB5<Output<PushPull>>, pin3: PB4<Output<PushPull>>,
 				   pin4: PB10<Output<PushPull>>, pin5: PA8<Output<PushPull>>, pin6: PC4<Output<PushPull>>,) -> Self 
 	{
-		// let relais1 = pin1.into_push_pull_output();	
-		// let relais2 = pin2.into_push_pull_output();
-		// let relais3 = pin3.into_push_pull_output();	
-		// let relais4 = pin4.into_push_pull_output();
-		// let relais5 = pin5.into_push_pull_output();	
-		// let relais6 = pin6.into_push_pull_output();
 		let relais1 = pin1;	
 		let relais2 = pin2;
 		let relais3 = pin3;	
@@ -108,6 +140,21 @@ impl Watering {
 			self.task[_elem].active = TaskState::WaitActivation;
 			self.task[_elem].duration = self.plantconfig[_elem].duration;
 		}
+	}
+
+	pub fn SetPlantConfig(&mut self, plant_index : usize,  config : WaterConfig)
+	{
+		if plant_index > max_number_of_plants
+		{
+			return;
+		}
+
+		self.plantconfig[plant_index] = config;
+	}
+
+	pub fn SetPlantConfig_all(&mut self, config : PlantData)
+	{
+		self.plantconfig = config;
 	}
 
 	pub fn cycling(&mut self, time_now : Time)
