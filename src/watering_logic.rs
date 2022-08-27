@@ -12,7 +12,9 @@ use time::{
     macros::time,
 	Time, Duration,
 	PrimitiveDateTime};
+use arrayvec::ArrayString; // 0.4.10
 use rtt_target::{rprintln};
+use core::fmt::{Display, Formatter, Result};
 
 pub enum TaskState 
 {
@@ -28,8 +30,17 @@ struct WaterTask
 	end 	 : Time,
 }
 
+/**
+ * @details name = plant name (botanic)
+ * 			duration = water flow if active condition is met
+ * 			levellow = if != 0 and on dayly check below low, activate 
+ * 			levelhigh = if != 0 and if waterpump is active and we're over this level, deactivate it 
+ * 			levellow/high == 0, activate pump dayly for duration time 
+ */
+#[derive(Copy, Clone)]
 pub struct WaterConfig
 {
+	name : ArrayString::<10>,
 	duration : u16, 
 	levellow : u16,
 	levelhigh: u16,
@@ -41,6 +52,7 @@ impl WaterConfig
 	{
 		WaterConfig
 		{
+			name : ArrayString::<10>::from("empty").unwrap(),
 			duration : 1000,
 			levellow : 1300,
 			levelhigh : 1800,
@@ -51,6 +63,7 @@ impl WaterConfig
 	{
 		WaterConfig
 		{
+			name : ArrayString::<10>::new(),
 			duration : dur,
 			levellow : low,
 			levelhigh : high,
@@ -67,6 +80,14 @@ impl WaterConfig
 			((self.levelhigh >> 8) & 0xFF) as u8,
 			((self.levelhigh >> 0) & 0xFF) as u8,
 		]
+	}	
+}
+
+impl Display for WaterConfig
+{
+	fn fmt (&self, f: &mut Formatter<'_>) -> Result
+	{
+		write!(f, "{} duration {} Level {} <> {}", self.name, self.duration, self.levellow, self.levelhigh)
 	}
 }
 
@@ -111,12 +132,12 @@ impl Watering {
 		let relaisstate = Relaisstate::Off; 
 		let count = 0;		
 		let plantconfig :  [WaterConfig; 6] = [
-			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,}, 
-			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,}, 
-			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,},
-			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,},
-			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,},
-			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500,}
+			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500, name: ArrayString::<10>::new(), }, 
+			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500, name: ArrayString::<10>::new(), }, 
+			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500, name: ArrayString::<10>::new(), },
+			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500, name: ArrayString::<10>::new(), },
+			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500, name: ArrayString::<10>::new(), },
+			WaterConfig { duration : 6000, levellow : 2100, levelhigh: 1500, name: ArrayString::<10>::new(), }
 			];
 		let task : [WaterTask; 6] = [
 			WaterTask { active : TaskState::Off, duration :0, end: time!(0:00), },
@@ -308,11 +329,43 @@ impl Watering {
 		{
 			return self.plantconfig[index].duration;
 		}
-		else {
+		else 
+		{
 			return 0;
 		}
 	}
 
+	pub fn set_name(&mut self, index: usize, name : ArrayString::<10>)
+	{
+		if index < 6
+		{
+			self.plantconfig[index].name = name;
+		}
+	}
+
+	pub fn get_name(&mut self, index: usize) -> ArrayString::<10>
+	{
+		if index < 6
+		{
+			return self.plantconfig[index].name;
+		}
+		else 
+		{
+			return ArrayString::<10>::new();
+		}
+	}
+
+	pub fn get_Config(&mut self, index : usize) -> WaterConfig
+	{
+		if index < 6
+		{
+			return self.plantconfig[index];
+		}
+		else 
+		{
+			return WaterConfig::new();
+		}
+	}
 	
 	pub fn relais_test(&mut self, index : usize)
 	{

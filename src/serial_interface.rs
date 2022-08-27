@@ -25,6 +25,8 @@ pub enum SerialCommand
     SetNext(Date),
     SetPlantConfig(u8, u32),
     SetPlantWateringDuration(u32, u32),
+    SetName(u8, ArrayString::<10>),
+    PrintConfig(u8)
 }
 
 use stm32f4xx_hal::{
@@ -45,6 +47,8 @@ use time::{
     Date, Time, PrimitiveDateTime,
 };
 use rtt_target::{rprintln};
+
+use crate::watering_logic::WaterConfig;
   
 pub struct SerialInterface {
     tx : Tx<USART2>,
@@ -247,6 +251,50 @@ impl SerialInterface {
                 
                 command = SerialCommand::SetPlantWateringDuration(index, duration);
             }
+            else if self.readbuffer.contains("setname")
+            {
+                let mut index : u8 = 0xFF;
+                let mut name = ArrayString::<10>::new();
+                for _ in 1..9 
+                {
+                    self.readbuffer.remove(0);  
+                }
+                let element = self.readbuffer.remove(0);
+                if element.is_numeric()
+                {
+                    match element.to_digit(10)
+                    {
+                        Some(number) => index = number as u8,
+                        _ => {}, //todo error 
+                    }
+                }
+                for letter in self.readbuffer.chars()
+                {
+                    //@todo check size 
+                    name.try_push(letter);
+                }
+
+                command = SerialCommand::SetName(index, name)
+            }
+            else if self.readbuffer.contains("printset")
+            {
+                let mut index : u8 = 0xFF;
+                for _ in 1..10 
+                {
+                    self.readbuffer.remove(0);  
+                }
+                let element = self.readbuffer.remove(0);
+                if element.is_numeric()
+                {
+                    match element.to_digit(10)
+                    {
+                        Some(number) => index = number as u8,
+                        _ => {}, //todo error 
+                    }
+                }
+
+                command = SerialCommand::PrintConfig(index);
+            }
             else 
             {
                 command = SerialCommand::PrintUsage;
@@ -263,7 +311,7 @@ impl SerialInterface {
     pub fn printcommands(&mut self)
     {
         let mut buf = ArrayString::<104>::new();
-        write!(&mut buf, "supported commands:\r\ntime - prints current time\r\nnext\r\nsett\r\nsetd\r\nsetnxt\r\ndur\r\nactive\r\n").expect("Can't write");
+        write!(&mut buf, "supported commands:\r\ntime - prints current time\r\nnext\r\nsett\r\nsetd\r\nsetnxt\r\ndur\r\nactive\r\nsetname 0-5 name[20]\r\n").expect("Can't write");
         for element in buf.bytes() 
         {
             block!(self.tx.write(element)).ok();    // ESC + [H  goes to home location
@@ -300,6 +348,20 @@ impl SerialInterface {
             block!(self.tx.write(element)).ok();    // ESC + [H  goes to home location
         }
     }	
+
+    /**
+     * 
+     */
+    pub fn print_config(&mut self, config : WaterConfig)
+    {
+        let mut buf = ArrayString::<60>::new();
+        write!(&mut buf, "Plant {}\r\n", config).expect("Can't write");
+        
+		for element in buf.bytes() {
+            block!(self.tx.write(element)).ok();    // ESC + [H  goes to home location
+        }
+    }
+
 	/**
      * intended to be called every programm cycle.
      * - clear field and reprint new time.

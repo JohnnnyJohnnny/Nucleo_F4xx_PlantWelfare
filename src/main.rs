@@ -208,14 +208,19 @@ fn main() -> ! {
 										},
 			SerialCommand::ActivatePump(_idx) => {},
 			SerialCommand::SetDate(_date) => 	{	
-													rtc.set_date(&_date);
+													rtc.set_date(&_date).unwrap();
 													nextWaterInterval = PrimitiveDateTime::new(_date, wateringtime); 
 												},
 			SerialCommand::SetNext(_date) => nextWaterInterval = PrimitiveDateTime::new(_date, wateringtime),
-			SerialCommand::SetTime(_time) => {rtc.set_time(&_time);},
+			SerialCommand::SetTime(_time) => {rtc.set_time(&_time).unwrap();},
 			SerialCommand::SetPlantConfig(_idx, power) => {},
 			SerialCommand::SetPlantWateringDuration(_idx, _duration) => water.set_duration(_idx.try_into().unwrap(), _duration.try_into().unwrap()),
 			SerialCommand::PrintUsage => serialprint.printcommands(),
+			SerialCommand::SetName(_idx, name) => water.set_name(_idx.try_into().unwrap(), name), 
+			SerialCommand::PrintConfig(_idx) => {
+													let config = water.get_Config(_idx.try_into().unwrap());
+													serialprint.print_config(config);
+												},
 		}
 	
         delay.delay_ms(500_u16);
