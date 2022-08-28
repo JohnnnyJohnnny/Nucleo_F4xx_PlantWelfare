@@ -26,7 +26,9 @@ pub enum SerialCommand
     SetPlantConfig(u8, u32),
     SetPlantWateringDuration(u32, u32),
     SetName(u8, ArrayString::<10>),
-    PrintConfig(u8)
+    PrintConfig(u8),
+    Printall,
+    Info
 }
 
 use stm32f4xx_hal::{
@@ -143,6 +145,14 @@ impl SerialInterface {
             else if self.readbuffer.contains("next")
             {
                 command = SerialCommand::PrintNext;
+            }
+            else if self.readbuffer.contains("all")
+            {
+                command = SerialCommand::Printall;
+            }
+            else if self.readbuffer.contains("info")
+            {
+                command = SerialCommand::Info;
             }
             else if self.readbuffer.contains("sett")
             {
@@ -361,6 +371,20 @@ impl SerialInterface {
             block!(self.tx.write(element)).ok();    // ESC + [H  goes to home location
         }
     }
+
+    /**
+     * 
+     */
+    pub fn print_level(&mut self, index : usize,level : u16)
+    {
+        let mut buf = ArrayString::<60>::new();
+        write!(&mut buf, "{} Water {}\r\n", index, level).expect("Can't write");
+        
+		for element in buf.bytes() {
+            block!(self.tx.write(element)).ok();    // ESC + [H  goes to home location
+        }
+    }
+
 
 	/**
      * intended to be called every programm cycle.

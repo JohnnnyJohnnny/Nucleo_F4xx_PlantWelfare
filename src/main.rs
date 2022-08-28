@@ -221,6 +221,19 @@ fn main() -> ! {
 													let config = water.get_Config(_idx.try_into().unwrap());
 													serialprint.print_config(config);
 												},
+			SerialCommand::Printall => {
+											for index in 0..6 
+											{
+												let config = water.get_Config(index.try_into().unwrap());
+												serialprint.print_config(config);
+											}
+										},
+			SerialCommand::Info => {
+										for index in 0..6 
+										{
+											serialprint.print_level(index, plantsample[index]);
+										}
+									},
 		}
 	
         delay.delay_ms(500_u16);
